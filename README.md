@@ -38,20 +38,20 @@ python live_asr.py
 You can use any **wav2vec2** model from the [huggingface model hub](https://huggingface.co/models?pipeline_tag=automatic-speech-recognition&search=wav2vec2). Just set the model name, all files will be downloaded on first execution.
 
 ```python 
-    from live_asr import LiveWav2Vec2
+from live_asr import LiveWav2Vec2
 
-    english_model = "facebook/wav2vec2-large-960h-lv60-self"
-    german_model = "maxidl/wav2vec2-large-xlsr-german"
-    asr = LiveWav2Vec2(german_model,device_name="default")
-    asr.start()
+english_model = "facebook/wav2vec2-large-960h-lv60-self"
+german_model = "maxidl/wav2vec2-large-xlsr-german"
+asr = LiveWav2Vec2(german_model,device_name="default")
+asr.start()
 
-    try:        
-        while True:
-            text,sample_length,inference_time = asr.get_last_text()                        
-            print(f"{sample_length:.3f}s"
-            +f"\t{inference_time:.3f}s"
-            +f"\t{text}")
-            
-    except KeyboardInterrupt:   
-        asr.stop()  
+try:        
+    while True:
+        text,sample_length,inference_time = asr.get_last_text()                        
+        print(f"{sample_length:.3f}s"
+        +f"\t{inference_time:.3f}s"
+        +f"\t{text}")
+        
+except KeyboardInterrupt:   
+    asr.stop()  
 ```
