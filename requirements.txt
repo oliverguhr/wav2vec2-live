@@ -1,0 +1,5 @@
+soundfile
+torch
+transformers
+pyaudio
+webrtcvad
