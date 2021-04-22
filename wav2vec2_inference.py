@@ -29,6 +29,6 @@ class Wave2Vec2Inference():
 
 if __name__ == "__main__":
     print("Model test")
-    asr = Wave2VecInference2("maxidl/wav2vec2-large-xlsr-german")
+    asr = Wave2Vec2Inference("maxidl/wav2vec2-large-xlsr-german")
     text = asr.file_to_text("some.wav")
     print(text)
