@@ -14,8 +14,7 @@ class LiveWav2Vec2():
 
     def __init__(self, model_name, device_name="default"):
         self.model_name = model_name
-        self.device_name = device_name
-        self.is_listening = None
+        self.device_name = device_name        
         self.asr_output_queue = Queue()
         self.asr_input_queue = Queue()
 
