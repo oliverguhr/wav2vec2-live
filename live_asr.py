@@ -9,16 +9,16 @@ from sys import exit
 import contextvars
 from queue import  Queue
 
-exit_event = threading.Event()
+
 class LiveWav2Vec2():
-    
+    exit_event = threading.Event()    
     def __init__(self, model_name, device_name="default"):
         self.model_name = model_name
         self.device_name = device_name              
 
     def stop(self):
         """stop the asr process"""
-        exit_event.set()
+        LiveWav2Vec2.exit_event.set()
         self.asr_input_queue.put("close")
         print("asr stopped")
 
@@ -62,7 +62,7 @@ class LiveWav2Vec2():
 
         frames = b''                
         while True:         
-            if exit_event.is_set():
+            if LiveWav2Vec2.exit_event.is_set():
                 break            
             frame = stream.read(CHUNK)
             is_speech = vad.is_speech(frame, RATE)
