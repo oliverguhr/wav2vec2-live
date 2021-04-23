@@ -2,38 +2,36 @@ import pyaudio
 import webrtcvad
 from wav2vec2_inference import Wave2Vec2Inference
 import numpy as np
-from multiprocessing import Process, Queue
+import threading
 import copy
 import time
 from sys import exit
 import contextvars
+from queue import  Queue
 
-
+exit_event = threading.Event()
 class LiveWav2Vec2():
-    is_listening = contextvars.ContextVar('global_is_listening_state', default=None)
-
+    
     def __init__(self, model_name, device_name="default"):
         self.model_name = model_name
-        self.device_name = device_name        
-        self.asr_output_queue = Queue()
-        self.asr_input_queue = Queue()
+        self.device_name = device_name              
 
     def stop(self):
         """stop the asr process"""
-        LiveWav2Vec2.is_listening.set(False)
-        self.asr_input_queue.close()                
-        self.asr_output_queue.close()  
+        exit_event.set()
+        self.asr_input_queue.put("close")
         print("asr stopped")
 
     def start(self):
         """start the asr process"""
-        LiveWav2Vec2.is_listening.set(True)
-        self.asr_process = Process(target=LiveWav2Vec2.asr_process, args=(
+        self.asr_output_queue = Queue()
+        self.asr_input_queue = Queue()
+        self.asr_process = threading.Thread(target=LiveWav2Vec2.asr_process, args=(
             self.model_name, self.asr_input_queue, self.asr_output_queue,))
         self.asr_process.daemon = True
         self.asr_process.start()
         time.sleep(5)  # start vad after asr model is loaded
-        self.vad_process = Process(target=LiveWav2Vec2.vad_process, args=(
+        self.vad_process = threading.Thread(target=LiveWav2Vec2.vad_process, args=(
             self.device_name, self.asr_input_queue,))
         self.vad_process.daemon = True
         self.vad_process.start()
@@ -62,8 +60,10 @@ class LiveWav2Vec2():
                             input=True,
                             frames_per_buffer=CHUNK)
 
-        frames = b''        
-        while LiveWav2Vec2.is_listening.get():            
+        frames = b''                
+        while True:         
+            if exit_event.is_set():
+                break            
             frame = stream.read(CHUNK)
             is_speech = vad.is_speech(frame, RATE)
             if is_speech:
@@ -80,9 +80,11 @@ class LiveWav2Vec2():
         wave2vec_asr = Wave2Vec2Inference(model_name)
 
         print("\nlistening to your voice\n")
-        while LiveWav2Vec2.is_listening.get():
-            in_queue
-            audio_frames = in_queue.get()            
+        while True:                        
+            audio_frames = in_queue.get()       
+            if audio_frames == "close":
+                break
+
             float64_buffer = np.frombuffer(
                 audio_frames, dtype=np.int16) / 32767
             start = time.perf_counter()
@@ -125,6 +127,5 @@ if __name__ == "__main__":
             print(f"{sample_length:.3f}s\t{inference_time:.3f}s\t{text}")
             
     except KeyboardInterrupt:
-        print("stopping")
         asr.stop()  
         exit()
