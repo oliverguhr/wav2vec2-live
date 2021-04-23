@@ -28,12 +28,10 @@ class LiveWav2Vec2():
         self.asr_input_queue = Queue()
         self.asr_process = threading.Thread(target=LiveWav2Vec2.asr_process, args=(
             self.model_name, self.asr_input_queue, self.asr_output_queue,))
-        self.asr_process.daemon = True
         self.asr_process.start()
         time.sleep(5)  # start vad after asr model is loaded
         self.vad_process = threading.Thread(target=LiveWav2Vec2.vad_process, args=(
             self.device_name, self.asr_input_queue,))
-        self.vad_process.daemon = True
         self.vad_process.start()
 
     def vad_process(device_name, asr_input_queue):
