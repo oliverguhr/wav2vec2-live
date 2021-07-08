@@ -1,4 +1,5 @@
-import collections, queue
+import collections
+import queue
 from wav2vec2_inference import Wave2Vec2Inference
 import numpy as np
 import pyaudio
@@ -8,6 +9,7 @@ import torch
 import torchaudio
 from rx.subject import BehaviorSubject
 import time
+from sys import exit
 
 class Audio(object):
     """Streams raw audio from microphone. Data is received in a separate thread, and stored in a buffer, to be read from."""
@@ -23,13 +25,16 @@ class Audio(object):
             #pylint: disable=unused-argument
             callback(in_data)
             return (None, pyaudio.paContinue)
-        if callback is None: callback = lambda in_data: self.buffer_queue.put(in_data)
+        if callback is None:
+            def callback(in_data): return self.buffer_queue.put(in_data)
         self.buffer_queue = queue.Queue()
         self.device = device
         self.input_rate = input_rate
         self.sample_rate = self.RATE_PROCESS
-        self.block_size = int(self.RATE_PROCESS / float(self.BLOCKS_PER_SECOND))
-        self.block_size_input = int(self.input_rate / float(self.BLOCKS_PER_SECOND))
+        self.block_size = int(self.RATE_PROCESS /
+                              float(self.BLOCKS_PER_SECOND))
+        self.block_size_input = int(
+            self.input_rate / float(self.BLOCKS_PER_SECOND))
         self.pa = pyaudio.PyAudio()
 
         kwargs = {
@@ -58,7 +63,8 @@ class Audio(object):
         self.stream.close()
         self.pa.terminate()
 
-    frame_duration_ms = property(lambda self: 1000 * self.block_size // self.sample_rate)
+    frame_duration_ms = property(
+        lambda self: 1000 * self.block_size // self.sample_rate)
 
 
 class VADAudio(Audio):
@@ -82,7 +88,8 @@ class VADAudio(Audio):
             Example: (frame, ..., frame, None, frame, ..., frame, None, ...)
                       |---utterence---|        |---utterence---|
         """
-        if frames is None: frames = self.frame_generator()
+        if frames is None:
+            frames = self.frame_generator()
         num_padding_frames = padding_ms // self.frame_duration_ms
         ring_buffer = collections.deque(maxlen=num_padding_frames)
         triggered = False
@@ -105,18 +112,21 @@ class VADAudio(Audio):
             else:
                 yield frame
                 ring_buffer.append((frame, is_speech))
-                num_unvoiced = len([f for f, speech in ring_buffer if not speech])
+                num_unvoiced = len(
+                    [f for f, speech in ring_buffer if not speech])
                 if num_unvoiced > ratio * ring_buffer.maxlen:
                     triggered = False
                     yield None
                     ring_buffer.clear()
 
+
 def main(ARGS):
     model_name = "jonatasgrosman/wav2vec2-large-xlsr-53-german"
 
-    wave_buffer = BehaviorSubject(np.array([]))    
+    wave_buffer = BehaviorSubject(np.array([]))
     wave2vec_asr = Wave2Vec2Inference(model_name)
-    wave_buffer.subscribe(on_next=lambda x: asr_output_formatter(wave2vec_asr,x))
+    wave_buffer.subscribe(
+        on_next=lambda x: asr_output_formatter(wave2vec_asr, x))
 
     # Start audio with VAD
     vad_audio = VADAudio(aggressiveness=ARGS.webRTC_aggressiveness,
@@ -125,14 +135,14 @@ def main(ARGS):
 
     print("Listening (ctrl-C to exit)...")
     frames = vad_audio.vad_collector()
+    
 
     # load silero VAD
     torchaudio.set_audio_backend("soundfile")
     model, utils = torch.hub.load(repo_or_dir='snakers4/silero-vad',
-                                    model=ARGS.silaro_model_name,
-                                    force_reload= ARGS.reload)
-    (get_speech_ts,_,_, _,_, _, _) = utils
-
+                                  model=ARGS.silaro_model_name,
+                                  force_reload=ARGS.reload)
+    (get_speech_ts, _, _, _, _, _, _) = utils
 
     # Stream from microphone to Wav2Vec 2.0 using VAD
     print("audio length\tinference time\ttext")
@@ -140,37 +150,43 @@ def main(ARGS):
     if not ARGS.nospinner:
         spinner = Halo(spinner='line')
     wav_data = bytearray()
-    for frame in frames:
-        if frame is not None:
-            if spinner: spinner.start()
+    try:
+        for frame in frames:
+            if frame is not None:
+                if spinner:
+                    spinner.start()
 
-            wav_data.extend(frame)
-        else:
-            if spinner: spinner.stop()
-            #print("webRTC has detected a possible speech")
-
-            newsound= np.frombuffer(wav_data,np.int16)
-            audio_float32=Int2FloatSimple(newsound)
-            time_stamps =get_speech_ts(audio_float32, model,num_steps=ARGS.num_steps,trig_sum=ARGS.trig_sum,neg_trig_sum=ARGS.neg_trig_sum,
-                                    num_samples_per_window=ARGS.num_samples_per_window,min_speech_samples=ARGS.min_speech_samples,
-                                    min_silence_samples=ARGS.min_silence_samples)
-
-            if(len(time_stamps)>0):
-                #print("silero VAD has detected a possible speech")
-                #float64_buffer = np.frombuffer(wav_data, dtype=np.int16) / 32767 -> hacky version
-                wave_buffer.on_next(audio_float32.numpy())
+                wav_data.extend(frame)
             else:
-                print("VAD detected noise")            
-            wav_data = bytearray()
+                if spinner:
+                    spinner.stop()
+                #print("webRTC has detected a possible speech")
 
-def asr_output_formatter(asr,audio):
+                newsound = np.frombuffer(wav_data, np.int16)
+                audio_float32 = Int2FloatSimple(newsound)
+                time_stamps = get_speech_ts(audio_float32, model, num_steps=ARGS.num_steps, trig_sum=ARGS.trig_sum, neg_trig_sum=ARGS.neg_trig_sum,
+                                            num_samples_per_window=ARGS.num_samples_per_window, min_speech_samples=ARGS.min_speech_samples,
+                                            min_silence_samples=ARGS.min_silence_samples)
+
+                if(len(time_stamps) > 0):
+                    #print("silero VAD has detected a possible speech")
+                    # float64_buffer = np.frombuffer(wav_data, dtype=np.int16) / 32767 -> hacky version
+                    wave_buffer.on_next(audio_float32.numpy())
+                else:
+                    print("VAD detected noise")
+                wav_data = bytearray()
+    except KeyboardInterrupt:        
+        exit()
+
+
+def asr_output_formatter(asr, audio):
     start = time.perf_counter()
     text = asr.buffer_to_text(audio)
     inference_time = time.perf_counter()-start
     sample_length = len(audio) / DEFAULT_SAMPLE_RATE
-    print(f"{sample_length:.3f}s\t{inference_time:.3f}s\t{text}")
+    print(f"{sample_length:.3f}s\t{inference_time:.3f}s\t{text}")    
 
-def Int2FloatSimple(sound):    
+def Int2FloatSimple(sound):
     return torch.from_numpy(np.frombuffer(sound, dtype=np.int16).astype('float32') / 32767)
 
 def Int2Float(sound):
@@ -183,11 +199,13 @@ def Int2Float(sound):
     audio_float32 = torch.from_numpy(_sound.squeeze())
     return audio_float32
 
+
 if __name__ == '__main__':
     DEFAULT_SAMPLE_RATE = 16000
 
     import argparse
-    parser = argparse.ArgumentParser(description="Stream from microphone to webRTC and silero VAD")
+    parser = argparse.ArgumentParser(
+        description="Stream from microphone to webRTC and silero VAD")
 
     parser.add_argument('-v', '--webRTC_aggressiveness', type=int, default=3,
                         help="Set aggressiveness of webRTC: an integer between 0 and 3, 0 being the least aggressive about filtering out non-speech, 3 the most aggressive. Default: 3")
@@ -198,7 +216,8 @@ if __name__ == '__main__':
 
     parser.add_argument('-name', '--silaro_model_name', type=str, default="silero_vad",
                         help="select the name of the model. You can select between 'silero_vad',''silero_vad_micro','silero_vad_micro_8k','silero_vad_mini','silero_vad_mini_8k'")
-    parser.add_argument('--reload', action='store_true',help="download the last version of the silero vad")
+    parser.add_argument('--reload', action='store_true',
+                        help="download the last version of the silero vad")
 
     parser.add_argument('-ts', '--trig_sum', type=float, default=0.25,
                         help="overlapping windows are used for each audio chunk, trig sum defines average probability among those windows for switching into triggered state (speech state)")
@@ -218,5 +237,5 @@ if __name__ == '__main__':
     parser.add_argument('-msis', '--min_silence_samples', type=int, default=500,
                         help=" minimum silence duration in samples between to separate speech chunks")
     ARGS = parser.parse_args()
-    ARGS.rate=DEFAULT_SAMPLE_RATE
+    ARGS.rate = DEFAULT_SAMPLE_RATE
     main(ARGS)
