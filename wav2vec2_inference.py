@@ -19,7 +19,7 @@ class Wave2Vec2Inference():
         inputs = self.processor([audio_buffer], sampling_rate=16_000, return_tensors="pt", padding=True)
 
         with torch.no_grad():
-            logits = self.model(inputs.input_values, attention_mask=torch.ones(len(inputs.input_values[0]))).logits
+            logits = self.model(inputs.input_values).logits
 
         predicted_ids = torch.argmax(logits, dim=-1)        
         transcription = self.processor.batch_decode(predicted_ids)[0]
