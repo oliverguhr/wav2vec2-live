@@ -16,7 +16,7 @@ class Wave2Vec2Inference():
         if(len(audio_buffer)==0):
             return ""
 
-        inputs = self.processor([audio_buffer], sampling_rate=16_000, return_tensors="pt", padding=True)
+        inputs = self.processor(torch.tensor(audio_buffer), sampling_rate=16_000, return_tensors="pt", padding=True)
 
         with torch.no_grad():
             logits = self.model(inputs.input_values).logits

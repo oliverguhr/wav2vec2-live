@@ -141,11 +141,12 @@ def main(ARGS):
     torchaudio.set_audio_backend("soundfile")
     model, utils = torch.hub.load(repo_or_dir='snakers4/silero-vad',
                                   model=ARGS.silaro_model_name,
-                                  force_reload=ARGS.reload)
-    (get_speech_ts, _, _, _, _, _, _) = utils
+                                  force_reload=ARGS.reload,
+                                  onnx=True)
+    (get_speech_timestamps,save_audio,read_audio,VADIterator,collect_chunks) = utils
 
     # Stream from microphone to Wav2Vec 2.0 using VAD
-    print("audio length\tinference time\ttext")
+    print("audio length\tinference time\ttext")    
     spinner = None
     if not ARGS.nospinner:
         spinner = Halo(spinner='line')
@@ -164,13 +165,10 @@ def main(ARGS):
 
                 newsound = np.frombuffer(wav_data, np.int16)
                 audio_float32 = Int2FloatSimple(newsound)
-                time_stamps = get_speech_ts(audio_float32, model, num_steps=ARGS.num_steps, trig_sum=ARGS.trig_sum, neg_trig_sum=ARGS.neg_trig_sum,
-                                            num_samples_per_window=ARGS.num_samples_per_window, min_speech_samples=ARGS.min_speech_samples,
-                                            min_silence_samples=ARGS.min_silence_samples)
+                time_stamps = get_speech_timestamps(audio_float32, model, sampling_rate=ARGS.rate)
 
                 if(len(time_stamps) > 0):
-                    #print("silero VAD has detected a possible speech")
-                    # float64_buffer = np.frombuffer(wav_data, dtype=np.int16) / 32767 -> hacky version
+                    #print("silero VAD has detected a possible speech")              
                     wave_buffer.on_next(audio_float32.numpy())
                 else:
                     print("VAD detected noise")
