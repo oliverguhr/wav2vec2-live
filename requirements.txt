@@ -6,4 +6,5 @@ pyaudio
 webrtcvad
 rx
 halo
+onnx
 onnxruntime
