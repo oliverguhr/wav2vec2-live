@@ -21,10 +21,10 @@ class Wave2Vec2ONNXInference():
         if(len(audio_buffer)==0):
             return ""
 
-        inputs = self.processor(torch.tensor(audio_buffer), sampling_rate=16_000, return_tensors="pt", padding=True)
+        inputs = self.processor(torch.tensor(audio_buffer), sampling_rate=16_000, return_tensors="np", padding=True)
 
         input_values = inputs.input_values
-        onnx_outputs = self.model.run(None, {self.model.get_inputs()[0].name: input_values.numpy()})[0]
+        onnx_outputs = self.model.run(None, {self.model.get_inputs()[0].name: input_values})[0]
         prediction = np.argmax(onnx_outputs, axis=-1)
 
         transcription = self.processor.decode(prediction.squeeze().tolist())
