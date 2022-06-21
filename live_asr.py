@@ -7,14 +7,15 @@ import copy
 import time
 from sys import exit
 import contextvars
-from queue import  Queue
+from queue import Queue
 
 
 class LiveWav2Vec2():
-    exit_event = threading.Event()    
+    exit_event = threading.Event()
+
     def __init__(self, model_name, device_name="default"):
         self.model_name = model_name
-        self.device_name = device_name              
+        self.device_name = device_name
 
     def stop(self):
         """stop the asr process"""
@@ -58,10 +59,10 @@ class LiveWav2Vec2():
                             input=True,
                             frames_per_buffer=CHUNK)
 
-        frames = b''                
-        while True:         
+        frames = b''
+        while True:
             if LiveWav2Vec2.exit_event.is_set():
-                break            
+                break
             frame = stream.read(CHUNK)
             is_speech = vad.is_speech(frame, RATE)
             if is_speech:
@@ -78,8 +79,8 @@ class LiveWav2Vec2():
         wave2vec_asr = Wave2Vec2Inference(model_name)
 
         print("\nlistening to your voice\n")
-        while True:                        
-            audio_frames = in_queue.get()       
+        while True:
+            audio_frames = in_queue.get()
             if audio_frames == "close":
                 break
 
@@ -90,7 +91,7 @@ class LiveWav2Vec2():
             inference_time = time.perf_counter()-start
             sample_length = len(float64_buffer) / 16000  # length in sec
             if text != "":
-                output_queue.put([text,sample_length,inference_time])                            
+                output_queue.put([text, sample_length, inference_time])
 
     def get_input_device_id(device_name, microphones):
         for device in microphones:
@@ -111,20 +112,21 @@ class LiveWav2Vec2():
 
     def get_last_text(self):
         """returns the text, sample length and inference time in seconds."""
-        return self.asr_output_queue.get()           
+        return self.asr_output_queue.get()
+
 
 if __name__ == "__main__":
     print("Live ASR")
 
-    asr = LiveWav2Vec2("facebook/wav2vec2-large-960h-lv60-self")
-    
+    asr = LiveWav2Vec2("airesearch/wav2vec2-large-xlsr-53-th")
+
     asr.start()
 
-    try:        
+    try:
         while True:
-            text,sample_length,inference_time = asr.get_last_text()                        
+            text, sample_length, inference_time = asr.get_last_text()
             print(f"{sample_length:.3f}s\t{inference_time:.3f}s\t{text}")
-            
+
     except KeyboardInterrupt:
-        asr.stop()  
+        asr.stop()
         exit()
