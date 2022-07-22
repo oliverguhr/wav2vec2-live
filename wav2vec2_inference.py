@@ -1,6 +1,6 @@
 import soundfile as sf
 import torch
-from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC
+from transformers import AutoModelForCTC, AutoProcessor
 
 # Improvements: 
 # - gpu / cpu flag
@@ -9,8 +9,8 @@ from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC
 
 class Wave2Vec2Inference():
     def __init__(self,model_name):
-        self.processor = Wav2Vec2Processor.from_pretrained(model_name) 
-        self.model = Wav2Vec2ForCTC.from_pretrained(model_name)
+        self.processor = AutoProcessor.from_pretrained(model_name)
+        self.model = AutoModelForCTC.from_pretrained(model_name)
 
     def buffer_to_text(self,audio_buffer):
         if(len(audio_buffer)==0):
@@ -21,8 +21,20 @@ class Wave2Vec2Inference():
         with torch.no_grad():
             logits = self.model(inputs.input_values).logits
 
-        predicted_ids = torch.argmax(logits, dim=-1)        
-        transcription = self.processor.batch_decode(predicted_ids)[0]
+        if hasattr(self.processor, 'decoder'):
+            transcription = \
+                self.processor.decode(logits[0].cpu().numpy(),
+                                      beam_width=self.beam_width,
+                                      hotwords=self.hotwords,
+                                      hotword_weight=self.hotword_weight,
+                                      alpha=self.alpha, beta=self.beta,
+                                      output_word_offsets=True,
+                                      lm_score_boundary=True)
+            transcription = "".join([i for i in transcription.text if len(i) > 0])
+        else:
+            predicted_ids = torch.argmax(logits, dim=-1)
+            transcription = self.processor.batch_decode(predicted_ids)[0]
+
         return transcription.lower()
 
     def file_to_text(self,filename):
