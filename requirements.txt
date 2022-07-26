@@ -8,3 +8,6 @@ rx
 halo
 onnx
 onnxruntime
+wheel
+pyctcdecode
+https://github.com/kpu/kenlm/archive/master.zip

@@ -121,7 +121,7 @@ class VADAudio(Audio):
 
 
 def main(ARGS):
-    model_name = "jonatasgrosman/wav2vec2-large-xlsr-53-german"
+    model_name = "oliverguhr/wav2vec2-large-xlsr-53-german-cv9"
 
     wave_buffer = BehaviorSubject(np.array([]))
     wave2vec_asr = Wave2Vec2Inference(model_name)
