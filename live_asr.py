@@ -75,7 +75,7 @@ class LiveWav2Vec2():
         audio.terminate()
 
     def asr_process(model_name, in_queue, output_queue):
-        wave2vec_asr = Wave2Vec2Inference(model_name)
+        wave2vec_asr = Wave2Vec2Inference(model_name, use_lm_if_possible=True)
 
         print("\nlistening to your voice\n")
         while True:
@@ -86,11 +86,12 @@ class LiveWav2Vec2():
             float64_buffer = np.frombuffer(
                 audio_frames, dtype=np.int16) / 32767
             start = time.perf_counter()
-            text = wave2vec_asr.buffer_to_text(float64_buffer).lower()
+            text, confidence = wave2vec_asr.buffer_to_text(float64_buffer)
+            text = text.lower()
             inference_time = time.perf_counter()-start
             sample_length = len(float64_buffer) / 16000  # length in sec
             if text != "":
-                output_queue.put([text,sample_length,inference_time])
+                output_queue.put([text,sample_length,inference_time,confidence])
 
     def get_input_device_id(device_name, microphones):
         for device in microphones:
@@ -116,14 +117,14 @@ class LiveWav2Vec2():
 if __name__ == "__main__":
     print("Live ASR")
 
-    asr = LiveWav2Vec2("facebook/wav2vec2-large-960h-lv60-self")
+    asr = LiveWav2Vec2("oliverguhr/wav2vec2-large-xlsr-53-german-cv9")
 
     asr.start()
 
     try:
         while True:
-            text,sample_length,inference_time = asr.get_last_text()
-            print(f"{sample_length:.3f}s\t{inference_time:.3f}s\t{text}")
+            text,sample_length,inference_time, confidence= asr.get_last_text()
+            print(f"{sample_length:.3f}s\t{inference_time:.3f}s\t{confidence}\t{text}")
 
     except KeyboardInterrupt:
         asr.stop()
