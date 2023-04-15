@@ -3,14 +3,12 @@ import webrtcvad
 from wav2vec2_inference import Wave2Vec2Inference
 import numpy as np
 import threading
-import copy
 import time
 from sys import exit
-import contextvars
 from queue import  Queue
 
 
-class LiveWav2Vec2():
+class LiveWav2Vec2:
     exit_event = threading.Event()
     def __init__(self, model_name, device_name="default"):
         self.model_name = model_name
@@ -34,6 +32,7 @@ class LiveWav2Vec2():
             self.device_name, self.asr_input_queue,))
         self.vad_process.start()
 
+    @staticmethod
     def vad_process(device_name, asr_input_queue):
         vad = webrtcvad.Vad()
         vad.set_mode(1)
@@ -45,7 +44,6 @@ class LiveWav2Vec2():
         # A frame must be either 10, 20, or 30 ms in duration for webrtcvad
         FRAME_DURATION = 30
         CHUNK = int(RATE * FRAME_DURATION / 1000)
-        RECORD_SECONDS = 50
 
         microphones = LiveWav2Vec2.list_microphones(audio)
         selected_input_device_id = LiveWav2Vec2.get_input_device_id(
@@ -74,6 +72,7 @@ class LiveWav2Vec2():
         stream.close()
         audio.terminate()
 
+    @staticmethod
     def asr_process(model_name, in_queue, output_queue):
         wave2vec_asr = Wave2Vec2Inference(model_name, use_lm_if_possible=True)
 
@@ -93,11 +92,13 @@ class LiveWav2Vec2():
             if text != "":
                 output_queue.put([text,sample_length,inference_time,confidence])
 
+    @staticmethod
     def get_input_device_id(device_name, microphones):
         for device in microphones:
             if device_name in device[1]:
                 return device[0]
 
+    @staticmethod
     def list_microphones(pyaudio_instance):
         info = pyaudio_instance.get_host_api_info_by_index(0)
         numdevices = info.get('deviceCount')
@@ -123,7 +124,7 @@ if __name__ == "__main__":
 
     try:
         while True:
-            text,sample_length,inference_time, confidence= asr.get_last_text()
+            text, sample_length, inference_time, confidence = asr.get_last_text()
             print(f"{sample_length:.3f}s\t{inference_time:.3f}s\t{confidence}\t{text}")
 
     except KeyboardInterrupt:
