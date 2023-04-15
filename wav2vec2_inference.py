@@ -1,13 +1,13 @@
 import soundfile as sf
 import torch
-from transformers import AutoModelForCTC, AutoProcessor, Wav2Vec2Processor, pipeline
+from transformers import AutoModelForCTC, AutoProcessor, Wav2Vec2Processor
 
 # Improvements: 
 # - convert non 16 khz sample rates
 # - inference time log
 
-class Wave2Vec2Inference():
-    def __init__(self,model_name, hotwords=[], use_lm_if_possible = True, use_gpu=True):
+class Wave2Vec2Inference:
+    def __init__(self,model_name, hotwords=[], use_lm_if_possible=True, use_gpu=True):
         self.device = "cuda" if use_gpu and torch.cuda.is_available() else "cpu"
         if use_lm_if_possible:            
             self.processor = AutoProcessor.from_pretrained(model_name)
@@ -18,8 +18,8 @@ class Wave2Vec2Inference():
         self.hotwords = hotwords
         self.use_lm_if_possible = use_lm_if_possible
 
-    def buffer_to_text(self,audio_buffer):
-        if(len(audio_buffer)==0):
+    def buffer_to_text(self, audio_buffer):
+        if len(audio_buffer) == 0:
             return ""
 
         inputs = self.processor(torch.tensor(audio_buffer), sampling_rate=16_000, return_tensors="pt", padding=True)
@@ -44,7 +44,7 @@ class Wave2Vec2Inference():
 
         return transcription, confidence   
 
-    def confidence_score(self,logits,predicted_ids):
+    def confidence_score(self, logits, predicted_ids):
         scores = torch.nn.functional.softmax(logits, dim=-1)                                                           
         pred_scores = scores.gather(-1, predicted_ids.unsqueeze(-1))[:, :, 0]
         mask = torch.logical_and(
@@ -55,7 +55,7 @@ class Wave2Vec2Inference():
         total_average = torch.sum(character_scores) / len(character_scores)
         return total_average
 
-    def file_to_text(self,filename):
+    def file_to_text(self, filename):
         audio_input, samplerate = sf.read(filename)
         assert samplerate == 16000
         return self.buffer_to_text(audio_input)
