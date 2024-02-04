@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Realtime WebSocket Audio Streaming</title>
+    <style>
+        body {
+            background-color: black;
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <h1>Realtime WebSocket Audio Streaming</h1>
+    <button id="startButton">Start Streaming</button>
+    <button id="stopButton">Stop Streaming</button>
+    <div id="responseContainer"></div>
+    <script src="https://www.WebRTC-Experiment.com/RecordRTC.js"></script>
+    <script>
+        let ws = new WebSocket('ws://localhost:5010/audio_stream');
+        let mediaRecorder;
+
+        ws.onmessage = event => {
+            let responseContainer = document.getElementById('responseContainer');
+            console.log(event)
+            responseContainer.innerHTML += `<p>${event.data}</p>`;
+        };
+
+        let handleDataAvailable = (event) => {
+            if (event.size > 0) {
+                console.log('blob', event)
+                blobToBase64(event).then(b64 => {
+                    ws.send(b64)
+                })
+            }
+        };
+
+        function blobToBase64(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(blob);
+                reader.onload = () => {
+                    const base64String = reader.result.split(',')[1];
+                    resolve(base64String);
+                };
+                reader.onerror = (error) => reject(error);
+            });
+        }
+
+        navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+            let recorder = RecordRTC(stream, {
+                type: 'audio',
+                recorderType: StereoAudioRecorder,
+                mimeType: 'audio/wav',
+                timeSlice: 500,
+                desiredSampRate: 16000,
+                numberOfAudioChannels: 1,
+                ondataavailable: handleDataAvailable
+            });
+
+            document.getElementById('startButton').addEventListener('click', () => {
+                recorder.startRecording();
+            });
+
+            document.getElementById('stopButton').addEventListener('click', () => {
+                recorder.stopRecording();
+                recorder.getDataURL(dataURL => {
+                    ws.send(dataURL);
+                });
+            });
+        });
+
+        ws.onopen = () => {
+            console.log('WebSocket connection opened');
+        };
+
+        ws.onclose = () => {
+            console.log('WebSocket connection closed');
+        };
+    </script>
+</body>
+</html>
